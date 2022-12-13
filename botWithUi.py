@@ -34,7 +34,7 @@ window.title('Trading Bot Training')
 # Add a label and text field for entering the stock symbol
 stock_label = tk.Label(window, text='Stock Symbol:')
 stock_label.grid(row=0, column=0)
-stock_entry = tk.Entry(window
+stock_entry = tk.Entry(window)
 # Configure the text field to automatically select the text when focused
 stock_entry.bind('<FocusIn>', lambda event: stock_entry.selection_range(0, 'end'))
 
