@@ -1,61 +1,39 @@
-import tkinter as tk
-import tensorflow as tf
+import yfinance as yf
 import pandas as pd
-import quandl
+import tensorflow as tf
 
-# Define the model architecture and compile it
+# Get the stock data for Tesla
+tsla = yf.Ticker("TSLA")
+
+# Get the historical data for the stock
+historical_data = tsla.history(period="max")
+
+# Select the relevant columns
+X = historical_data[['Open', 'High', 'Low', 'Close', 'Volume']]
+y = historical_data['Close'].shift(-1)  # The target is the next day's closing price
+
+# Split the data into training and test sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+
+# Preprocess the data (e.g., handle missing values, normalize numerical features)
+
+# Define the model
 model = tf.keras.Sequential([
-    tf.keras.layers.Flatten(input_shape=(100, 4)),
-    tf.keras.layers.Dense(128, activation='relu'),
-    tf.keras.layers.Dense(1, activation='sigmoid')
-]).compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+    tf.keras.layers.Dense(64, input_shape=(X_train.shape[1],), activation='relu'),
+    tf.keras.layers.Dense(32, activation='relu'),
+    tf.keras.layers.Dense(1)
+])
 
-# Function to load the training data for a given stock
-def load_data(stock):
-    data = quandl.get('WIKI/{}'.format(stock), start_date='2000-01-01', end_date='2010-12-31')
-    x_train = data[['Open', 'High', 'Low', 'Close']].rolling(100).mean().dropna().values.reshape(-1, 100, 4)
-    y_train = (data['Close'].shift(-1) > data['Close']).astype(int).values[100:]
-    return x_train, y_train
+# Compile the model
+model.compile(optimizer='adam', loss='mean_squared_error')
 
-# Function to train the model on the selected stock
-def train_model(stock):
-    x_train, y_train = load_data(stock)
-    model.fit(x_train, y_train, epochs=100, batch_size=32, validation_split=0.2)
+# Train the model
+model.fit(X_train, y_train, epochs=10, batch_size=32)
 
-# Create the main window
-window = tk.Tk()
-window.title('Trading Bot Training')
+# Evaluate the model
+y_pred = model.predict(X_test)
+accuracy = model.score(X_test, y_test)
 
-# Add a label and text field for entering the stock symbol
-stock_label = tk.Label(window, text='Stock Symbol:')
-stock_label.grid(row=0, column=0)
-stock_entry = tk.Entry(window)
-stock_entry.grid(row=0, column=1)
-
-# Configure the text field to automatically select the text when focused
-stock_entry.bind('<FocusIn>', lambda event: stock_entry.selection_range(0, 'end'))
-
-# Add a button for training the model on the selected stock
-train_button = tk.Button(window, text='Train Model', command=lambda: train_model(stock_entry.get()))
-train_button.grid(row=1, column=0, columnspan=2)
-
-# Add a label and progress bar for showing the training progress
-progress_label = tk.Label(window, text='Training Progress:')
-progress_label.grid(row=2, column=0)
-progress_bar = tk.ttk.Progressbar(window, orient='horizontal', length=200, mode='determinate')
-progress_bar.grid(row=2, column=1)
-
-# Function to update the progress bar during training
-def update_progress(epoch, logs):
-    progress_bar['value'] = (epoch+1)/100*100
-
-# Attach the progress update function to the on_epoch_end event
-model.fit(x_train, y_train, epochs=100, batch_size=32, validation_split=0.2, callbacks=[tf.keras.callbacks.LambdaCallback(on_epoch_end=update_progress)])
-
-# Add a button for saving the trained model
-save_button = tk.Button(window, text='Save Model', command=lambda: model.save('my_trading_bot.h5'))
-save_button.grid(row=3, column=0, columnspan=2)
-
-# Run the main event loop
-window.mainloop()
-
+# Make predictions on new data
+new_data = np.load('new_data.npy')
+predictions = model.predict(new_data)
